@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "payment" ALTER COLUMN "amount" DROP NOT NULL,
+ALTER COLUMN "fee" DROP NOT NULL,
+ALTER COLUMN "total_amount" DROP NOT NULL;

@@ -29,7 +29,7 @@ export class CreateBranchDto {
   address: string;
 
   @IsNumber()
-  @IsNotEmpty({ message: "" })
+  @IsNotEmpty({ message: "Service center ID must be provided" })
   service_center_id: number;
 
   @IsArray({ message: "Location must be an array with latitude and longitude" })
@@ -51,7 +51,8 @@ export class CreateBranchDto {
   email: string;
 
   @IsArray({
-    message: "Operating hourse should include start time and end time",
+    message:
+      "Operating hourse should include start time and end time. And it should be array",
   })
   @ArrayMaxSize(2, { message: "Operating times cannot be more than two." })
   @ArrayMinSize(2, { message: "Operating times should be at least two" })
@@ -62,8 +63,4 @@ export class CreateBranchDto {
   @MinLength(1, { message: "Description cannot be empty" })
   @MaxLength(300, { message: "Description length cannot exceed 300" })
   description: string;
-
-  @IsOptional()
-  @IsUrl()
-  website: string;
 }

@@ -13,7 +13,7 @@ model Service_Center {
   address        String
   location       Float[]
   contact_number String
-  email          String  @unique
+  email          String   @unique
   description    String?  @db.Text
   website        String?
   Branch         Branch[]
@@ -27,18 +27,552 @@ model Service_Center {
 model Branch {
   id                Int            @id @default(autoincrement())
   name              String         @db.VarChar(100)
-  service_center_id Service_Center @relation(fields: [serviceCenterId], references: [id])
+  service_center    Service_Center @relation(fields: [service_center_id], references: [id])
+  service_center_id Int
   address           String
-  location          Json
+  location          Float[]
   contact_number    String
   email             String?
   operating_hours   String[]
   manager_id        Int?
   description       String?        @db.Text
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  serviceCenterId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("branch")
 }
+
+model Admin {
+  id              Int          @id @default(autoincrement())
+  username        String?      @unique @db.VarChar(100)
+  email           String?      @unique // user can signin with username or email.
+  hashed_password String?
+  roles           Admin_Role[]
+  is_active       Boolean?     @default(false)
+  is_owner        Boolean?     @default(false) //* cannot instead check with roles.
+  status          Admin_Status @default(PENDING)
+  token           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  is_deleted Boolean? @default(false) @db.Boolean
+
+  @@map("admin")
+}
+
+model Admin_Role {
+  id       Int @id @default(autoincrement())
+  admin_id Int
+  role_id  Int
+
+  admin Admin @relation(fields: [admin_id], references: [id])
+  role  Role  @relation(fields: [role_id], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([admin_id, role_id])
+  @@map("admin_role")
+}
+
+model Role {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique @db.VarChar(50)
+  description String?      @db.Text
+  admins      Admin_Role[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("role")
+}
+
+enum Admin_Status {
+  ACTIVE
+  INACTIVE
+  PENDING
+  SUSPENDED
+  DELETED
+  LOCKED
+}
+
+model Service_Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
+  description String?   @db.Text
+  services    Service[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("service-category")
+}
+
+model Service {
+  id               Int                 @id @default(autoincrement())
+  name             String              @unique
+  description      String?             @db.Text
+  category_id      Int
+  category         Service_Category    @relation(fields: [category_id], references: [id])
+  average_duration String? // maybe, i need to add RegEx. or create some format.
+  price            Decimal             @db.Decimal(14, 2) // decimal or float for price.
+  status           Service_Status?     @default(AVAILABLE)
+  // whether should i use simple. is active or add enum. which will give more clear info about specific service.
+  server_list_item Service_List_Item[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("service")
+}
+
+enum Service_Status {
+  AVAILABLE // Service is fully available and operational
+  UNAVAILABLE // Service is temporarily unavailable
+  NO_MASTERS // Service is unavailable due to lack of skilled staff or resources
+  CLOSED // Service is closed, possibly outside working hours
+  BANNED // Service is banned due to policy or rule violations
+  IN_MAINTENANCE // Service is under maintenance or repair
+  PENDING
+}
+
+// in the future i will add table for manufacturere and model's
+model Car {
+  id                Int               @default(autoincrement())
+  client            Client            @relation(fields: [client_id], references: [id])
+  client_id         Int               @db.Integer
+  manufacturer      String            @db.VarChar(50)
+  model             String            @db.VarChar(50)
+  year              Int?              @db.Integer
+  VIN               String?           @db.VarChar(50)
+  license_plate     String?           @db.VarChar(20) // this must have regex. and i am doing it optional if it will be new car.
+  color             String?           @db.VarChar(30)
+  registered_date   String // DateTime
+  engine_type       Engine_Type
+  transmission      Transmission_Type
+  mileage           Int
+  body_type         Body_Type
+  insurance_details String?
+  status            Car_Status        @default(ACTIVE)
+  notes             String?           @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([id])
+  @@unique([VIN, license_plate]) // unique values car can have.
+  @@map("car")
+}
+
+enum Car_Status {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum Transmission_Type {
+  manual
+  automatic
+  electric // for electric vehicles
+  // there are also other types of automatic and manual transmission.
+}
+
+enum Engine_Type {
+  petrol
+  turbocharged_petrol
+  supercharged_petrol
+  diesel
+  turbocharged_diesel
+  supercharged_diesel
+  rotary
+  electric
+  hybrid_petrol_electric
+  hybrid_diesel_electric
+  plug_in_hybrid
+  natural_gas
+  propane
+}
+
+enum Body_Type {
+  Sedan
+  Hatchback
+  SUV
+  Coupe
+  Convertible
+  Wagon
+  Pickup
+  Minivan
+  Van
+  Crossover
+  Motorcycle
+  SportsCar
+}
+
+model Client {
+  id              Int           @default(autoincrement())
+  first_name      String
+  last_name       String
+  phone_number    String
+  email           String
+  hashed_password String?
+  activation_link String?
+  token           String?
+  status          Client_Status @default(PENDING)
+  // * agar, premium yoki vip status user-lar uchun role-lar bo'lishi mumkin.
+  cars            Car[]
+  // payments        Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([id])
+  @@unique([email, phone_number]) // i am sure about email. but not sure about phone_number.
+  @@map("client")
+}
+
+enum Client_Status {
+  ACTIVE
+  INACTIVE
+  PENDING
+  SUSPENDED
+  BANNED
+  VERIFIED
+  UNVERIFIED
+  ARCHIVED
+  DELETED
+  LOCKED
+  EXPIRED
+  TRIAL
+  REACTIVATED
+  DEACTIVATED
+}
+
+model Appointment {
+  id              Int                @default(autoincrement())
+  client_id       Int                @db.Integer
+  car_id          Int?               @db.Integer
+  service_list_id Int?               @unique @db.Integer
+  basket_id       Int?               @unique @db.Integer
+  payment_id      Int?               @unique @db.Integer
+  status          Appointment_Status @default(SCHEDULED)
+
+  service_list Service_List? @relation(name: "ServiceList", fields: [service_list_id], references: [id])
+  basket       Basket?       @relation(name: "Basket", fields: [basket_id], references: [id])
+  payment      Payment?      @relation(name: "Payment", fields: [payment_id], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([id])
+  @@map("appointment")
+}
+
+enum Appointment_Status {
+  SCHEDULED // xizmat ko'rsatilmadi va hali vaqt kelmadi.
+  CONFIRMED
+  IN_PROGRESS // jarayonda.
+  COMPLETED // muvaffaqiyatli ravishda xizmat ko'rsatildi.
+  CANCELLED // mijoz yoki boshqa sababli bekor qilindi.
+  NO_SHOW // mijoz kelmadi.
+  RESCHEDULED // vaqt o'zgartirildi.
+  PENDING // oraliq jarayon.
+  FAILED // xizmat ko'rsatilmadi.
+  EXPIRED // vaqt o'tib ketdi.
+}
+
+model Service_List {
+  id          Int          @default(autoincrement())
+  appointment Appointment? @relation(name: "ServiceList")
+  total_price Decimal?     @db.Decimal(15, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([id])
+  @@unique([id])
+  @@map("service-list")
+}
+
+model Service_List_Item {
+  id              Int     @default(autoincrement())
+  service_list_id Int
+  service_id      Int
+  service         Service @relation(fields: [service_id], references: [id])
+  // needed products.
+  quantity        Int // if it's with quantity
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([id])
+  @@map("service-list-item")
+}
+
+model Supplier {
+  id           Int     @default(autoincrement())
+  name         String  @db.VarChar(100)
+  contact_name String? @db.VarChar(50)
+  phone_number String  @db.VarChar(15)
+  email        String? @db.VarChar(50)
+  address      String? @db.Text
+  website_url  String? @db.VarChar(100)
+  // product_type will it be linked to product_type table. let's future update
+
+  createdAt DateTime @default(now()) // should i make it optional and why.?
+  updatedAt DateTime @updatedAt
+
+  @@id([id])
+  @@unique([email])
+  @@map("supplier")
+}
+
+model PartsAndProducts {
+  id               Int     @id @default(autoincrement())
+  name             String  @db.VarChar(100)
+  description      String? @db.Text
+  price            Decimal @db.Decimal(15, 2)
+  stock_quantity   Int     @db.Integer
+  resource_type_id Int
+  category_id      Int
+
+  resourceType Resource_Type     @relation(fields: [resource_type_id], references: [id])
+  category     Resource_Category @relation(fields: [category_id], references: [id])
+  basketItems  Basket_Item[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("parts_and_products")
+}
+
+model Resource_Type {
+  id          Int                @id @default(autoincrement())
+  name        String             @unique @db.VarChar(100)
+  description String?            @db.Text
+  resources   PartsAndProducts[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("resource_type")
+}
+
+model Resource_Category {
+  id                 Int     @id @default(autoincrement())
+  name               String  @db.VarChar(100)
+  description        String? @db.Text
+  parent_category_id Int?    @db.Integer
+
+  parentCategory Resource_Category?  @relation("CategoryHierarchy", fields: [parent_category_id], references: [id])
+  subcategory    Resource_Category[] @relation("CategoryHierarchy")
+  resources      PartsAndProducts[]  @relation()
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("resource_category")
+}
+
+model Basket {
+  id          Int          @default(autoincrement())
+  appointment Appointment? @relation(name: "Basket")
+  total_price Decimal?     @db.Decimal(15, 2)
+
+  basket_items Basket_Item[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([id])
+  @@map("basket")
+}
+
+model Basket_Item {
+  id                    Int @default(autoincrement())
+  basket_id             Int @db.Integer
+  parts_and_products_id Int @db.Integer
+  quantity              Int @db.Integer
+
+  basket           Basket           @relation(fields: [basket_id], references: [id])
+  partsAndProducts PartsAndProducts @relation(fields: [parts_and_products_id], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([id])
+  @@map("basket_item")
+}
+
+model Work_Graphics {
+  id                 Int      @default(autoincrement())
+  staff              Staff?
+  default_start_time String   @default("09:00")
+  default_end_time   String   @default("17:00")
+  work_days          Json     @db.Json
+  work_time          WorkTime @default(FULL_TIME)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([id])
+  @@map("work_graphic")
+}
+
+// ? // Store an array of objects with day, works, and custom start_time/end_time it will be in later versions.
+
+enum WorkTime {
+  FULL_TIME
+  PART_TIME
+  ON_CALL
+  FLEXIBLE
+}
+
+// ! important part is this. what are staff related tables. and what to do with roles and permission.
+model Staff {
+  id                Int           @default(autoincrement())
+  fullname          String
+  username          String        @unique
+  hashed_password   String
+  activation_link   String?       
+  phone_number      String
+  role_id           Int
+  roles             Staff_Role[]
+  department_id     Int
+  department        Department    @relation(fields: [department_id], references: [id])
+  employement_date  String
+  work_scheduele_id Int?           @unique @db.Integer
+  work_scheduele    Work_Graphics? @relation(fields: [work_scheduele_id], references: [id])
+  is_active         Boolean?      @default(false)
+  status            Staff_Status? @default(ACTIVE)
+  // rating ??
+  token             String?
+  is_deleted        Boolean?      @default(false) @db.Boolean
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([id])
+  @@map("staff")
+}
+
+model Staff_Role {
+  id       Int @id @default(autoincrement())
+  role_id  Int //@unique
+  staff_id Int //@unique
+
+  role  Role_S @relation(fields: [role_id], references: [id])
+  staff Staff  @relation(fields: [staff_id], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([role_id, staff_id])
+  @@map("staff_role")
+}
+
+model Role_S {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique @db.VarChar(50)
+  description String?      @db.Text
+  staffs      Staff_Role[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("role_s")
+}
+
+enum Staff_Status {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  TERMINATED
+  ON_LEAVE
+}
+
+model Department {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  description String?
+  staff       Staff[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("department")
+}
+
+model Payment {
+  id           Int           @id @default(autoincrement())
+  amount       Float?
+  promocode    String?
+  fee          Float?
+  total_amount Float?
+  payment_date DateTime      @default(now())
+  method       PaymentMethod @default(CASH)
+  status       PaymentStatus @default(PENDING)
+  // client_id    Int
+
+  appointment Appointment? @relation(name: "Payment")
+  // client      Client       @relation(fields: [client_id], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  // Promocode   Promocode? @relation(fields: [promocodeId], references: [id])
+  // promocodeId Int?
+  // appointmentId Int?
+
+  @@map("payment")
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  CASH
+  ONLINE_BANKING
+  PAYPAL
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+model Promocode {
+  id          Int          @id @default(autoincrement())
+  code        String       @unique
+  description String?
+  discount    Float
+  type        DiscountType
+  valid_from  DateTime
+  valid_until DateTime
+  usage_limit Int
+  used_count  Int          @default(0)
+  is_active   Boolean      @default(true)
+
+  // payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("promocodes")
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+// what's left are
+// ! REVIEW
+// ! RATING
+
+// ? FAVORITE SERVICE OR PRODUCT
+// ? FAVORITE SERVICE
+// ? FAVORITE PRODUCT
+
+// * NOTIFICATION
